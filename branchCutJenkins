@@ -1,0 +1,50 @@
+pipeline {
+  agent any
+
+  parameters {
+    string(name: 'BASE_BRANCH', defaultValue: 'release-8.5.x', description: 'Base branch')
+    string(name: 'NEW_BRANCH',  description: 'New branch to create (e.g. release-8.5.1)')
+  }
+
+  stages {
+
+    stage('Checkout Base Branch') {
+      steps {
+        git branch: "${params.BASE_BRANCH}",
+            url: 'https://github.com/rushikeshraskar/spring-auth-app.git/',
+            credentialsId: 'f97287c6-60a4-439b-ad3e-d8afbec1ffd7'
+      }
+    }
+
+stage('Cut Release Branch') {
+  steps {
+    withCredentials([usernamePassword(
+      credentialsId: 'f97287c6-60a4-439b-ad3e-d8afbec1ffd7',
+      usernameVariable: 'GIT_USER',
+      passwordVariable: 'GIT_TOKEN'
+    )]) {
+      sh '''
+        git config user.name "jenkins"
+        git config user.email "jenkins@ci.local"
+
+        # Inject credentials into remote
+        git remote set-url origin https://${GIT_USER}:${GIT_TOKEN}@github.com/rushikeshraskar/spring-auth-app.git
+
+        chmod +x cut-release.sh
+        ./cut-release.sh ${BASE_BRANCH} ${NEW_BRANCH}
+      '''
+    }
+  }
+}
+
+  }
+
+  post {
+    success {
+      echo "🎉 Branch ${params.NEW_BRANCH} created from ${params.BASE_BRANCH}"
+    }
+    failure {
+      echo "❌ Branch cut failed"
+    }
+  }
+}
