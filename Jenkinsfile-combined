@@ -1,0 +1,204 @@
+pipeline {
+  agent any
+
+  parameters {
+    string(
+      name: 'BASE_BRANCH',
+      description: 'Base branch to cut from (e.g., release-8.5.x)',
+      defaultValue: 'release-8.5.x'
+    )
+    string(
+      name: 'NEW_BRANCH',
+      description: 'New branch to create (e.g., release-8.5.1)',
+      defaultValue: ''
+    )
+    string(
+      name: 'OLD_VERSION',
+      description: 'Version to search for (e.g., 8.5.0)',
+      defaultValue: ''
+    )
+    string(
+      name: 'NEW_VERSION',
+      description: 'Version to replace with (e.g., 8.5.1)',
+      defaultValue: ''
+    )
+  }
+
+  stages {
+    stage('Validate Parameters') {
+      steps {
+        script {
+          if (!params.BASE_BRANCH?.trim()) {
+            error "❌ Error: BASE_BRANCH parameter is required"
+          }
+          if (!params.NEW_BRANCH?.trim()) {
+            error "❌ Error: NEW_BRANCH parameter is required"
+          }
+          if (!params.OLD_VERSION?.trim()) {
+            error "❌ Error: OLD_VERSION parameter is required"
+          }
+          if (!params.NEW_VERSION?.trim()) {
+            error "❌ Error: NEW_VERSION parameter is required"
+          }
+          echo "✅ All parameters validated"
+          echo "   Base Branch: ${params.BASE_BRANCH}"
+          echo "   New Branch: ${params.NEW_BRANCH}"
+          echo "   Version Change: ${params.OLD_VERSION} → ${params.NEW_VERSION}"
+        }
+      }
+    }
+
+    stage('Checkout Base Branch') {
+      steps {
+        checkout(
+          [
+            $class: 'GitSCM',
+            branches: [[name: "*/${params.BASE_BRANCH}"]],
+            userRemoteConfigs: [[
+              url: 'https://github.com/rushikeshraskar/spring-auth-app.git',
+              credentialsId: 'f97287c6-60a4-439b-ad3e-d8afbec1ffd7'
+            ]]
+          ]
+        )
+        echo "✅ Checked out ${params.BASE_BRANCH}"
+      }
+    }
+
+    stage('Cut Release Branch') {
+      steps {
+        withCredentials([usernamePassword(
+          credentialsId: 'f97287c6-60a4-439b-ad3e-d8afbec1ffd7',
+          usernameVariable: 'GIT_USER',
+          passwordVariable: 'GIT_TOKEN'
+        )]) {
+          script {
+            if (isUnix()) {
+              sh '''
+                git config user.name "jenkins"
+                git config user.email "jenkins@ci.local"
+                git remote set-url origin https://${GIT_USER}:${GIT_TOKEN}@github.com/rushikeshraskar/spring-auth-app.git
+                
+                chmod +x cut-release.sh
+                ./cut-release.sh ${BASE_BRANCH} ${NEW_BRANCH}
+              '''
+            } else {
+              bat '''
+                git config user.name "jenkins"
+                git config user.email "jenkins@ci.local"
+                git remote set-url origin https://%GIT_USER%:%GIT_TOKEN%@github.com/rushikeshraskar/spring-auth-app.git
+                
+                REM For Windows, create the branch directly
+                git fetch origin %BASE_BRANCH%
+                git checkout -b %NEW_BRANCH% origin/%BASE_BRANCH%
+                
+                if errorlevel 1 (
+                  echo ❌ Failed to create branch %NEW_BRANCH%
+                  exit /b 1
+                )
+                
+                echo ✅ Branch %NEW_BRANCH% created successfully
+              '''
+            }
+          }
+        }
+      }
+    }
+
+    stage('Update Version Numbers') {
+      steps {
+        withCredentials([usernamePassword(
+          credentialsId: 'f97287c6-60a4-439b-ad3e-d8afbec1ffd7',
+          usernameVariable: 'GIT_USER',
+          passwordVariable: 'GIT_TOKEN'
+        )]) {
+          script {
+            if (isUnix()) {
+              sh '''
+                echo "🔍 Searching for .env file..."
+                
+                ENV_FILE=$(find . -name ".env" -type f | head -1)
+                
+                if [ -z "$ENV_FILE" ]; then
+                  echo "⚠️ Warning: .env file not found"
+                  exit 0
+                fi
+                
+                echo "📝 Found .env at: $ENV_FILE"
+                echo "📤 Replacing ${OLD_VERSION} with ${NEW_VERSION}..."
+                
+                sed -i "s/${OLD_VERSION}/${NEW_VERSION}/g" "$ENV_FILE"
+                
+                git add -A
+                git commit -m "chore: Update version from ${OLD_VERSION} to ${NEW_VERSION}"
+                git push origin ${NEW_BRANCH}
+                
+                echo "✅ Version numbers updated and pushed"
+              '''
+            } else {
+              bat '''
+                echo Searching for .env file...
+                
+                REM Look for .env file in repo
+                set "envFile="
+                for /r . %%F in (.env) do (
+                  set "envFile=%%F"
+                  echo Found .env file at: %%F
+                  goto found_env
+                )
+                
+                if "!envFile!"=="" (
+                  echo Warning: .env file not found
+                  exit /b 0
+                )
+                
+                :found_env
+                echo Replacing %OLD_VERSION% with %NEW_VERSION%...
+                
+                REM Use PowerShell for file replacement
+                powershell -Command ^
+                  "$content = [System.IO.File]::ReadAllText('!envFile!'); " ^
+                  "$newContent = $content -replace [regex]::Escape('%OLD_VERSION%'), '%NEW_VERSION%'; " ^
+                  "[System.IO.File]::WriteAllText('!envFile!', $newContent);"
+                
+                if errorlevel 1 (
+                  echo ❌ Failed to replace version numbers
+                  exit /b 1
+                )
+                
+                git add -A
+                git commit -m "chore: Update version from %OLD_VERSION% to %NEW_VERSION%"
+                
+                if errorlevel 1 (
+                  echo No changes to commit
+                  exit /b 0
+                )
+                
+                git push origin %NEW_BRANCH%
+                
+                echo ✅ Version numbers updated and pushed
+              '''
+            }
+          }
+        }
+      }
+    }
+  }
+
+  post {
+    success {
+      echo "🎉 Pipeline completed successfully!"
+      echo "📋 Summary:"
+      echo "   ✅ Stage 1: Branch '${params.NEW_BRANCH}' created from '${params.BASE_BRANCH}'"
+      echo "   ✅ Stage 2: Version updated from '${params.OLD_VERSION}' to '${params.NEW_VERSION}'"
+      echo "   ✅ Repository: https://github.com/rushikeshraskar/spring-auth-app"
+      echo "   ✅ Changes pushed to: ${params.NEW_BRANCH}"
+    }
+    failure {
+      echo "❌ Pipeline failed"
+      echo "   Please check the logs above for details"
+    }
+    unstable {
+      echo "⚠️ Pipeline unstable - check for warnings"
+    }
+  }
+}

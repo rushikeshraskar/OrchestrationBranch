@@ -3,23 +3,23 @@ pipeline {
 
   parameters {
     string(
-      name: 'SEARCH_TEXT',
-      description: 'Text to search for in .env file (e.g., VERSION=1.0.0)',
-      defaultValue: ''
-    )
-    string(
-      name: 'REPLACE_TEXT',
-      description: 'Text to replace with (e.g., VERSION=2.0.0)',
-      defaultValue: ''
-    )
-    string(
       name: 'SOURCE_BRANCH',
-      description: 'Source branch to checkout from',
+      description: 'Source branch name',
       defaultValue: 'main'
     )
     string(
       name: 'TARGET_BRANCH',
-      description: 'Target branch to create and push to',
+      description: 'Target branch name',
+      defaultValue: ''
+    )
+    string(
+      name: 'SEARCH_TEXT',
+      description: 'Version to search for (e.g., 1.0.0)',
+      defaultValue: ''
+    )
+    string(
+      name: 'REPLACE_TEXT',
+      description: 'Version to replace with (e.g., 2.0.0)',
       defaultValue: ''
     )
   }
@@ -28,20 +28,23 @@ pipeline {
     stage('Validate Parameters') {
       steps {
         script {
+          if (!params.SOURCE_BRANCH?.trim()) {
+            error "❌ Error: SOURCE_BRANCH parameter is required"
+          }
+          if (!params.TARGET_BRANCH?.trim()) {
+            error "❌ Error: TARGET_BRANCH parameter is required"
+          }
           if (!params.SEARCH_TEXT?.trim()) {
             error "❌ Error: SEARCH_TEXT parameter is required"
           }
           if (!params.REPLACE_TEXT?.trim()) {
             error "❌ Error: REPLACE_TEXT parameter is required"
           }
-          if (!params.TARGET_BRANCH?.trim()) {
-            error "❌ Error: TARGET_BRANCH parameter is required"
-          }
           echo "✅ All parameters validated"
-          echo "   Search Text: ${params.SEARCH_TEXT}"
-          echo "   Replace Text: ${params.REPLACE_TEXT}"
           echo "   Source Branch: ${params.SOURCE_BRANCH}"
           echo "   Target Branch: ${params.TARGET_BRANCH}"
+          echo "   Search Text: ${params.SEARCH_TEXT}"
+          echo "   Replace Text: ${params.REPLACE_TEXT}"
         }
       }
     }
@@ -80,7 +83,7 @@ pipeline {
                 git config --global user.name "jenkins-bot"
                 git config --global user.email "jenkins@ci.local"
                 
-                REM Call the replace.bat script with parameters
+                REM Call the replace.bat script with all parameters
                 call scripts\\replace.bat "%SEARCH_TEXT%" "%REPLACE_TEXT%" "%SOURCE_BRANCH%" "%TARGET_BRANCH%"
                 
                 if errorlevel 1 (
