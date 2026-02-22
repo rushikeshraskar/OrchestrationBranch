@@ -13,7 +13,7 @@ pipeline {
       defaultValue: ''
     )
     string(
-      name: 'OLD_VERSION',
+      name: 'CURRENT_VERSION',
       description: 'Version to search for (e.g., 8.5.0)',
       defaultValue: ''
     )
@@ -34,8 +34,8 @@ pipeline {
           if (!params.NEW_BRANCH?.trim()) {
             error "❌ Error: NEW_BRANCH parameter is required"
           }
-          if (!params.OLD_VERSION?.trim()) {
-            error "❌ Error: OLD_VERSION parameter is required"
+          if (!params.CURRENT_VERSION?.trim()) {
+            error "❌ Error: CURRENT_VERSION parameter is required"
           }
           if (!params.NEW_VERSION?.trim()) {
             error "❌ Error: NEW_VERSION parameter is required"
@@ -43,7 +43,7 @@ pipeline {
           echo "✅ All parameters validated"
           echo "   Base Branch: ${params.BASE_BRANCH}"
           echo "   New Branch: ${params.NEW_BRANCH}"
-          echo "   Version Change: ${params.OLD_VERSION} → ${params.NEW_VERSION}"
+          echo "   Version Change: ${params.CURRENT_VERSION} → ${params.NEW_VERSION}"
         }
       }
     }
@@ -55,7 +55,7 @@ pipeline {
             $class: 'GitSCM',
             branches: [[name: "*/${params.BASE_BRANCH}"]],
             userRemoteConfigs: [[
-              url: 'https://github.com/rushikeshraskar/spring-auth-app.git',
+              url: 'https://github.com/rushikeshraskar/DemoRepoForProduct1.git',
               credentialsId: 'f97287c6-60a4-439b-ad3e-d8afbec1ffd7'
             ]]
           ]
@@ -76,7 +76,7 @@ pipeline {
               sh '''
                 git config user.name "jenkins"
                 git config user.email "jenkins@ci.local"
-                git remote set-url origin https://${GIT_USER}:${GIT_TOKEN}@github.com/rushikeshraskar/spring-auth-app.git
+                git remote set-url origin https://${GIT_USER}:${GIT_TOKEN}@github.com/rushikeshraskar/DemoRepoForProduct1.git
                 
                 chmod +x cut-release.sh
                 ./cut-release.sh ${BASE_BRANCH} ${NEW_BRANCH}
@@ -85,7 +85,7 @@ pipeline {
               bat '''
                 git config user.name "jenkins"
                 git config user.email "jenkins@ci.local"
-                git remote set-url origin https://%GIT_USER%:%GIT_TOKEN%@github.com/rushikeshraskar/spring-auth-app.git
+                git remote set-url origin https://%GIT_USER%:%GIT_TOKEN%@github.com/rushikeshraskar/DemoRepoForProduct1.git
                 
                 REM For Windows, create the branch directly
                 git fetch origin %BASE_BRANCH%
@@ -124,12 +124,12 @@ pipeline {
                 fi
                 
                 echo "📝 Found .env at: $ENV_FILE"
-                echo "📤 Replacing ${OLD_VERSION} with ${NEW_VERSION}..."
+                echo "📤 Replacing ${CURRENT_VERSION} with ${NEW_VERSION}..."
                 
-                sed -i "s/${OLD_VERSION}/${NEW_VERSION}/g" "$ENV_FILE"
+                sed -i "s/${CURRENT_VERSION}/${NEW_VERSION}/g" "$ENV_FILE"
                 
                 git add -A
-                git commit -m "chore: Update version from ${OLD_VERSION} to ${NEW_VERSION}"
+                git commit -m "chore: Update version from ${CURRENT_VERSION} to ${NEW_VERSION}"
                 git push origin ${NEW_BRANCH}
                 
                 echo "✅ Version numbers updated and pushed"
@@ -152,12 +152,12 @@ pipeline {
                 )
                 
                 :found_env
-                echo Replacing %OLD_VERSION% with %NEW_VERSION%...
+                echo Replacing %CURRENT_VERSION% with %NEW_VERSION%...
                 
                 REM Use PowerShell for file replacement
                 powershell -Command ^
                   "$content = [System.IO.File]::ReadAllText('!envFile!'); " ^
-                  "$newContent = $content -replace [regex]::Escape('%OLD_VERSION%'), '%NEW_VERSION%'; " ^
+                  "$newContent = $content -replace [regex]::Escape('%CURRENT_VERSION%'), '%NEW_VERSION%'; " ^
                   "[System.IO.File]::WriteAllText('!envFile!', $newContent);"
                 
                 if errorlevel 1 (
@@ -166,7 +166,7 @@ pipeline {
                 )
                 
                 git add -A
-                git commit -m "chore: Update version from %OLD_VERSION% to %NEW_VERSION%"
+                git commit -m "chore: Update version from %CURRENT_VERSION% to %NEW_VERSION%"
                 
                 if errorlevel 1 (
                   echo No changes to commit
@@ -182,6 +182,47 @@ pipeline {
         }
       }
     }
+
+    stage('Execute Replace Operation') {
+      when {
+        expression {
+          return params.CURRENT_VERSION?.trim() && params.NEW_VERSION?.trim()
+        }
+      }
+      steps {
+        withCredentials([usernamePassword(
+          credentialsId: 'f97287c6-60a4-439b-ad3e-d8afbec1ffd7',
+          usernameVariable: 'GIT_USER',
+          passwordVariable: 'GIT_TOKEN'
+        )]) {
+          script {
+            if (isUnix()) {
+              error "❌ This job requires a Windows agent to run the .bat script"
+            } else {
+              bat '''
+                echo ========================================
+                echo Git Replacement Script Execution
+                echo ========================================
+                
+                REM Configure git credentials
+                git config --global user.name "jenkins-bot"
+                git config --global user.email "jenkins@ci.local"
+                
+                REM Call the replace.bat script with all parameters
+                call scripts\\replace.bat "%CURRENT_VERSION%" "%NEW_VERSION%" "%BASE_BRANCH%" "%NEW_BRANCH%"
+                
+                if errorlevel 1 (
+                  echo ❌ Script execution failed
+                  exit /b 1
+                )
+                
+                echo ✅ Script execution completed successfully
+              '''
+            }
+          }
+        }
+      }
+    }
   }
 
   post {
@@ -189,9 +230,14 @@ pipeline {
       echo "🎉 Pipeline completed successfully!"
       echo "📋 Summary:"
       echo "   ✅ Stage 1: Branch '${params.NEW_BRANCH}' created from '${params.BASE_BRANCH}'"
-      echo "   ✅ Stage 2: Version updated from '${params.OLD_VERSION}' to '${params.NEW_VERSION}'"
-      echo "   ✅ Repository: https://github.com/rushikeshraskar/spring-auth-app"
+      echo "   ✅ Stage 2: Version updated from '${params.CURRENT_VERSION}' to '${params.NEW_VERSION}'"
+      echo "   ✅ Repository: https://github.com/rushikeshraskar/DemoRepoForProduct1"
       echo "   ✅ Changes pushed to: ${params.NEW_BRANCH}"
+      script {
+        if (params.CURRENT_VERSION?.trim() && params.NEW_VERSION?.trim()) {
+          echo "   ✅ Stage 3: Replace operation completed for ${params.CURRENT_VERSION} → ${params.NEW_VERSION}"
+        }
+      }
     }
     failure {
       echo "❌ Pipeline failed"

@@ -3,26 +3,26 @@ setlocal enabledelayedexpansion
 
 REM Check if required parameters are provided
 if "%~1"=="" (
-    echo Usage: replace.bat "search_text" "replace_text" "source_branch" "target_branch"
-    echo Example: replace.bat "VERSION=1.0.0" "VERSION=2.0.0" "main" "release/2.0.0"
+    echo Usage: replace.bat "current_version" "new_version" "source_branch" "target_branch"
+    echo Example: replace.bat "1.0.0" "2.0.0" "main" "release/2.0.0"
     exit /b 1
 )
 
 if "%~2"=="" (
-    echo Usage: replace.bat "search_text" "replace_text" "source_branch" "target_branch"
-    echo Example: replace.bat "VERSION=1.0.0" "VERSION=2.0.0" "main" "release/2.0.0"
+    echo Usage: replace.bat "current_version" "new_version" "source_branch" "target_branch"
+    echo Example: replace.bat "1.0.0" "2.0.0" "main" "release/2.0.0"
     exit /b 1
 )
 
 if "%~3"=="" (
-    echo Usage: replace.bat "search_text" "replace_text" "source_branch" "target_branch"
-    echo Example: replace.bat "VERSION=1.0.0" "VERSION=2.0.0" "main" "release/2.0.0"
+    echo Usage: replace.bat "current_version" "new_version" "source_branch" "target_branch"
+    echo Example: replace.bat "1.0.0" "2.0.0" "main" "release/2.0.0"
     exit /b 1
 )
 
 if "%~4"=="" (
-    echo Usage: replace.bat "search_text" "replace_text" "source_branch" "target_branch"
-    echo Example: replace.bat "VERSION=1.0.0" "VERSION=2.0.0" "main" "release/2.0.0"
+    echo Usage: replace.bat "current_version" "new_version" "source_branch" "target_branch"
+    echo Example: replace.bat "1.0.0" "2.0.0" "main" "release/2.0.0"
     exit /b 1
 )
 
@@ -30,8 +30,8 @@ set "searchText=%~1"
 set "replaceText=%~2"
 set "sourceBranch=%~3"
 set "targetBranch=%~4"
-set "repoUrl=https://github.com/rushikeshraskar/TestCPRepo1"
-set "repoDir=%~dp0TestCPRepo1"
+set "repoUrl=https://github.com/rushikeshraskar/DemoRepoForProduct1"
+set "repoDir=%~dp0DemoRepoForProduct1"
 
 echo.
 echo ======================================
@@ -40,8 +40,8 @@ echo ======================================
 echo Repo URL: %repoUrl%
 echo Source Branch: %sourceBranch%
 echo Target Branch: %targetBranch%
-echo Search Text: %searchText%
-echo Replace Text: %replaceText%
+echo Current Version: %searchText%
+echo New Version: %replaceText%
 echo ======================================
 echo.
 
@@ -152,7 +152,7 @@ echo Summary:
 echo - Repository cloned from: %repoUrl%
 echo - Source branch: %sourceBranch%
 echo - Target branch: %targetBranch%
-echo - Replacement: %searchText% ^-^> %replaceText%
+echo - Version update: %searchText% ^-^> %replaceText%
 echo - Repository location: %repoDir%
 echo ======================================
 exit /b 0
