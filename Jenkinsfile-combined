@@ -1,5 +1,9 @@
 pipeline {
-  agent any
+  agent {
+    node {
+      label 'WindowsNode'
+    }
+  }
 
   parameters {
     string(
@@ -66,160 +70,43 @@ pipeline {
 
     stage('Cut Release Branch') {
       steps {
-        withCredentials([usernamePassword(
-          credentialsId: 'f97287c6-60a4-439b-ad3e-d8afbec1ffd7',
-          usernameVariable: 'GIT_USER',
-          passwordVariable: 'GIT_TOKEN'
-        )]) {
-          script {
-            if (isUnix()) {
-              sh '''
-                git config user.name "jenkins"
-                git config user.email "jenkins@ci.local"
-                git remote set-url origin https://${GIT_USER}:${GIT_TOKEN}@github.com/rushikeshraskar/DemoRepoForProduct1.git
-                
-                chmod +x cut-release.sh
-                ./cut-release.sh ${BASE_BRANCH} ${NEW_BRANCH}
-              '''
-            } else {
-              bat '''
-                git config user.name "jenkins"
-                git config user.email "jenkins@ci.local"
-                git remote set-url origin https://%GIT_USER%:%GIT_TOKEN%@github.com/rushikeshraskar/DemoRepoForProduct1.git
-                
-                REM For Windows, create the branch directly
-                git fetch origin %BASE_BRANCH%
-                git checkout -b %NEW_BRANCH% origin/%BASE_BRANCH%
-                
-                if errorlevel 1 (
-                  echo ❌ Failed to create branch %NEW_BRANCH%
-                  exit /b 1
-                )
-                
-                echo ✅ Branch %NEW_BRANCH% created successfully
-              '''
-            }
-          }
-        }
-      }
-    }
-
-    stage('Update Version Numbers') {
-      steps {
-        withCredentials([usernamePassword(
-          credentialsId: 'f97287c6-60a4-439b-ad3e-d8afbec1ffd7',
-          usernameVariable: 'GIT_USER',
-          passwordVariable: 'GIT_TOKEN'
-        )]) {
-          script {
-            if (isUnix()) {
-              sh '''
-                echo "🔍 Searching for .env file..."
-                
-                ENV_FILE=$(find . -name ".env" -type f | head -1)
-                
-                if [ -z "$ENV_FILE" ]; then
-                  echo "⚠️ Warning: .env file not found"
-                  exit 0
-                fi
-                
-                echo "📝 Found .env at: $ENV_FILE"
-                echo "📤 Replacing ${CURRENT_VERSION} with ${NEW_VERSION}..."
-                
-                sed -i "s/${CURRENT_VERSION}/${NEW_VERSION}/g" "$ENV_FILE"
-                
-                git add -A
-                git commit -m "chore: Update version from ${CURRENT_VERSION} to ${NEW_VERSION}"
-                git push origin ${NEW_BRANCH}
-                
-                echo "✅ Version numbers updated and pushed"
-              '''
-            } else {
-              bat '''
-                echo Searching for .env file...
-                
-                REM Look for .env file in repo
-                set "envFile="
-                for /r . %%F in (.env) do (
-                  set "envFile=%%F"
-                  echo Found .env file at: %%F
-                  goto found_env
-                )
-                
-                if "!envFile!"=="" (
-                  echo Warning: .env file not found
-                  exit /b 0
-                )
-                
-                :found_env
-                echo Replacing %CURRENT_VERSION% with %NEW_VERSION%...
-                
-                REM Use PowerShell for file replacement
-                powershell -Command ^
-                  "$content = [System.IO.File]::ReadAllText('!envFile!'); " ^
-                  "$newContent = $content -replace [regex]::Escape('%CURRENT_VERSION%'), '%NEW_VERSION%'; " ^
-                  "[System.IO.File]::WriteAllText('!envFile!', $newContent);"
-                
-                if errorlevel 1 (
-                  echo ❌ Failed to replace version numbers
-                  exit /b 1
-                )
-                
-                git add -A
-                git commit -m "chore: Update version from %CURRENT_VERSION% to %NEW_VERSION%"
-                
-                if errorlevel 1 (
-                  echo No changes to commit
-                  exit /b 0
-                )
-                
-                git push origin %NEW_BRANCH%
-                
-                echo ✅ Version numbers updated and pushed
-              '''
-            }
-          }
-        }
+        echo "📤 Triggering Jenkins job 'ABC' for branch cutting..."
+        build job: 'ABC', parameters: [
+          string(name: 'BASE_BRANCH', value: params.BASE_BRANCH),
+          string(name: 'NEW_BRANCH', value: params.NEW_BRANCH),
+          string(name: 'CURRENT_VERSION', value: params.CURRENT_VERSION),
+          string(name: 'NEW_VERSION', value: params.NEW_VERSION)
+        ]
+        echo "✅ Branch cutting job completed successfully"
       }
     }
 
     stage('Execute Replace Operation') {
-      when {
-        expression {
-          return params.CURRENT_VERSION?.trim() && params.NEW_VERSION?.trim()
-        }
-      }
       steps {
         withCredentials([usernamePassword(
           credentialsId: 'f97287c6-60a4-439b-ad3e-d8afbec1ffd7',
           usernameVariable: 'GIT_USER',
           passwordVariable: 'GIT_TOKEN'
         )]) {
-          script {
-            if (isUnix()) {
-              error "❌ This job requires a Windows agent to run the .bat script"
-            } else {
-              bat '''
-                echo ========================================
-                echo Git Replacement Script Execution
-                echo ========================================
-                
-                REM Configure git credentials
-                git config --global user.name "jenkins-bot"
-                git config --global user.email "jenkins@ci.local"
-                
-                REM Call the replace.bat script with all parameters
-                call scripts\\replace.bat "%CURRENT_VERSION%" "%NEW_VERSION%" "%BASE_BRANCH%" "%NEW_BRANCH%"
-                
-                if errorlevel 1 (
-                  echo ❌ Script execution failed
-                  exit /b 1
-                )
-                
-                echo ✅ Script execution completed successfully
-              '''
-            }
-          }
+          bat '''
+            echo ========================================
+            echo Executing Replace Script
+            echo ========================================
+            
+            REM Configure git credentials
+            git config --global user.name "jenkins-bot"
+            git config --global user.email "jenkins@ci.local"
+            
+            REM Call the replace.bat script with current and new version parameters
+            call replace.bat "%CURRENT_VERSION%" "%NEW_VERSION%"
+            
+            if errorlevel 1 (
+              echo ❌ Script execution failed
+              exit /b 1
+            )
+            
+            echo ✅ Script execution completed successfully
+          '''
         }
       }
     }
@@ -229,15 +116,10 @@ pipeline {
     success {
       echo "🎉 Pipeline completed successfully!"
       echo "📋 Summary:"
-      echo "   ✅ Stage 1: Branch '${params.NEW_BRANCH}' created from '${params.BASE_BRANCH}'"
-      echo "   ✅ Stage 2: Version updated from '${params.CURRENT_VERSION}' to '${params.NEW_VERSION}'"
+      echo "   ✅ Stage 1: Checked out base branch '${params.BASE_BRANCH}' from DemoRepoForProduct1"
+      echo "   ✅ Stage 2: Created release branch '${params.NEW_BRANCH}' from DemoRepoForProduct1"
+      echo "   ✅ Stage 3: Updated version in TestCPRepo1 from '${params.CURRENT_VERSION}' to '${params.NEW_VERSION}'"
       echo "   ✅ Repository: https://github.com/rushikeshraskar/DemoRepoForProduct1"
-      echo "   ✅ Changes pushed to: ${params.NEW_BRANCH}"
-      script {
-        if (params.CURRENT_VERSION?.trim() && params.NEW_VERSION?.trim()) {
-          echo "   ✅ Stage 3: Replace operation completed for ${params.CURRENT_VERSION} → ${params.NEW_VERSION}"
-        }
-      }
     }
     failure {
       echo "❌ Pipeline failed"

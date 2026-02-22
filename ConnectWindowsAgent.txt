@@ -1,0 +1,1 @@
+java -jar agent.jar -url http://localhost:8081/ -secret 357cbcf9c842cc1b40a98d5bcb0804a81b0ce96e905b6be1ff594399693b2fbd -name WIndowsNode -webSocket -workDir "C:\Jenkins"
