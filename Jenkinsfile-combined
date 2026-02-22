@@ -9,22 +9,22 @@ pipeline {
     string(
       name: 'BASE_BRANCH',
       description: 'Base branch to cut from (e.g., release-8.5.x)',
-      defaultValue: 'release-8.5.x'
+      defaultValue: 'release-1.0.0'
     )
     string(
       name: 'NEW_BRANCH',
       description: 'New branch to create (e.g., release-8.5.1)',
-      defaultValue: ''
+      defaultValue: 'release-1.0.1'
     )
     string(
       name: 'CURRENT_VERSION',
       description: 'Version to search for (e.g., 8.5.0)',
-      defaultValue: ''
+      defaultValue: '1.0.0'
     )
     string(
       name: 'NEW_VERSION',
       description: 'Version to replace with (e.g., 8.5.1)',
-      defaultValue: ''
+      defaultValue: '1.0.1'
     )
   }
 
@@ -50,23 +50,7 @@ pipeline {
           echo "   Version Change: ${params.CURRENT_VERSION} → ${params.NEW_VERSION}"
         }
       }
-    }
-
-    stage('Checkout Base Branch') {
-      steps {
-        checkout(
-          [
-            $class: 'GitSCM',
-            branches: [[name: "*/${params.BASE_BRANCH}"]],
-            userRemoteConfigs: [[
-              url: 'https://github.com/rushikeshraskar/DemoRepoForProduct1.git',
-              credentialsId: 'f97287c6-60a4-439b-ad3e-d8afbec1ffd7'
-            ]]
-          ]
-        )
-        echo "✅ Checked out ${params.BASE_BRANCH}"
-      }
-    }
+    }   
 
     stage('Cut Release Branch') {
       steps {
@@ -78,6 +62,22 @@ pipeline {
           string(name: 'NEW_VERSION', value: params.NEW_VERSION)
         ]
         echo "✅ Branch cutting job completed successfully"
+      }
+    }
+
+    stage('Checkout Base Branch') {
+      steps {
+        checkout(
+          [
+            $class: 'GitSCM',
+            branches: [[name: "*/master"]],
+            userRemoteConfigs: [[
+              url: 'https://github.com/rushikeshraskar/OrchestrationBranch.git',
+              credentialsId: 'f97287c6-60a4-439b-ad3e-d8afbec1ffd7'
+            ]]
+          ]
+        )
+        echo "✅ Checked out master branch"
       }
     }
 
