@@ -46,17 +46,19 @@ echo.
 REM Change to CP repo directory
 cd /d "%cpRepoDir%"
 
-REM Fetch and checkout main branch
-echo [STEP 2] Checking out main branch...
-git fetch origin main
-git checkout main
+REM Fetch and checkout master branch
+echo [STEP 2] Checking out master branch...
+git fetch origin master
+git checkout master
 if %errorlevel% neq 0 (
-    echo Error: Failed to checkout main branch in CP repo
+    echo Error: Failed to checkout master branch in CP repo
     cd /d "%~dp0"
     exit /b 1
 )
-echo [STEP 2] Checked out main successfully!
+echo [STEP 2] Checked out master successfully!
 echo.
+
+git checkout -b "%JIRA_ID%-%newVersion%"
 
 REM Find and replace version in .env file
 echo [STEP 3] Making version replacement in CP repository...
@@ -102,15 +104,15 @@ if %errorlevel% neq 0 (
 echo [STEP 4] Changes committed successfully!
 echo.
 
-REM Push to main branch
-echo [STEP 5] Pushing changes to main branch...
-git push origin main
+REM Push to master branch
+echo [STEP 5] Pushing changes to "%JIRA_ID%-%newVersion%" branch...
+git push origin "%JIRA_ID%-%newVersion%"
 if %errorlevel% neq 0 (
-    echo Error: Failed to push to main branch
+    echo Error: Failed to push to "%JIRA_ID%-%newVersion%" branch
     cd /d "%~dp0"
     exit /b 1
 )
-echo [STEP 5] Pushed to main successfully!
+echo [STEP 5] Pushed to "%JIRA_ID%-%newVersion%" branch successfully!
 echo.
 
 REM Return to original directory

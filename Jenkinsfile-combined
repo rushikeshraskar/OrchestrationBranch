@@ -26,6 +26,11 @@ pipeline {
       description: 'Version to replace with (e.g., 8.5.1)',
       defaultValue: '1.0.1'
     )
+    string(
+      name: 'JIRA_ID',
+      description: 'JIRA ID FOR CHANGE AND BRANCH CREATION',
+      defaultValue: 'DPM1234'
+    )
   }
 
   stages {
@@ -88,25 +93,25 @@ pipeline {
           usernameVariable: 'GIT_USER',
           passwordVariable: 'GIT_TOKEN'
         )]) {
-          bat '''
+          bat """
             echo ========================================
             echo Executing Replace Script
             echo ========================================
-            
+
             REM Configure git credentials
             git config --global user.name "jenkins-bot"
             git config --global user.email "jenkins@ci.local"
-            
-            REM Call the replace.bat script with current and new version parameters
-            call replace.bat "%CURRENT_VERSION%" "%NEW_VERSION%"
-            
+
+            REM Call the replace.bat script with pipeline parameters inlined
+            call replace.bat "${params.CURRENT_VERSION}" "${params.NEW_VERSION}" "${params.JIRA_ID}"
+
             if errorlevel 1 (
               echo ❌ Script execution failed
               exit /b 1
             )
-            
+
             echo ✅ Script execution completed successfully
-          '''
+          """
         }
       }
     }
